@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>NIFTY 50 Pro Elite Engine</title>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+  
+  <style>
+    :root {
+      --bg: #05070B; --card: #0F1520; --brd: #1A2535;
+      --bull: #00D97E; --bear: #FF3256; --amb: #FFB700; --blue: #3B9EFF; --org: #FF6B35;
+      --text: #E2EBF5; --text-dim: #7A90A8;
+    }
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body { background-color: var(--bg); color: var(--text); font-family: 'IBM Plex Mono', monospace; margin: 0; padding: 0; overflow: hidden; display: flex; flex-direction: column; height: 100vh; }
+    h1, h2, h3 { font-family: 'Syne', sans-serif; margin: 0; }
+
+    /* --- FIXED TOP HEADER --- */
+    .app-header { padding: 12px 16px 8px 16px; background: var(--bg); border-bottom: 1px solid var(--brd); z-index: 10; flex-shrink: 0; }
+    .top-row { display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 10px; }
+    .brand { font-size: 20px; font-weight: 800; font-family: 'Syne'; letter-spacing: -0.5px; }
+    .brand span { color: var(--blue); }
+    .badge { font-size: 9px; padding: 3px 6px; border-radius: 4px; background: rgba(255, 183, 0, 0.1); color: var(--amb); border: 1px solid rgba(255, 183, 0, 0.3); vertical-align: middle; margin-left: 6px; }
+    .time-txt { font-size: 10px; color: var(--text-dim); }
+    
+    .price-row { display: flex; align-items: baseline; gap: 10px; }
+    .main-price { font-size: 32px; font-weight: 800; font-family: 'Syne'; color: var(--bull); }
+    .price-change { font-size: 12px; color: var(--bull); font-weight: 600; }
+    .price-sub { font-size: 10px; color: var(--text-dim); margin-top: -4px; margin-bottom: 12px;}
+
+    /* Horizontal Ticker */
+    .ticker-wrap { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 8px; scrollbar-width: none; }
+    .ticker-wrap::-webkit-scrollbar { display: none; }
+    .t-box { border: 1px solid var(--brd); border-radius: 6px; padding: 6px 10px; background: var(--card); min-width: max-content; text-align: center; }
+    .t-lbl { font-size: 9px; color: var(--text-dim); margin-bottom: 2px; }
+    .t-val { font-size: 12px; font-weight: 600; }
+
+    /* --- SCROLLABLE CONTENT AREA --- */
+    .app-content { flex-grow: 1; overflow-y: auto; padding: 16px; padding-bottom: 20px; }
+    .tab-pane { display: none; }
+    .tab-pane.active { display: block; animation: fadeIn 0.3s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* Reusable Card */
+    .card { background: var(--card); border: 1px solid var(--brd); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+    .card-title { font-size: 18px; font-weight: 800; font-family: 'Syne'; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;}
+
+    /* Options UI Elements */
+    .opt-main-card { border: 1px solid var(--org); box-shadow: 0 4px 20px rgba(255, 107, 53, 0.1); }
+    .gauge-wrap { position: relative; width: 60px; height: 60px; border-radius: 50%; background: conic-gradient(var(--org) 57%, var(--brd) 0); display: flex; justify-content: center; align-items: center; }
+    .gauge-inner { width: 50px; height: 50px; background: var(--card); border-radius: 50%; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+    .gauge-val { font-size: 14px; font-weight: 600; color: var(--org); }
+    .gauge-lbl { font-size: 8px; color: var(--text-dim); }
+    
+    .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 15px 0; }
+    .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-top: 15px; border-top: 1px solid var(--brd); padding-top: 15px; }
+    .g-box { background: var(--bg); border: 1px solid var(--brd); border-radius: 8px; padding: 10px; text-align: center; }
+    .g-lbl { font-size: 8px; color: var(--text-dim); margin-bottom: 4px; text-transform: uppercase;}
+    .g-val { font-size: 13px; font-weight: 600; }
+
+    /* Logs & Positioning */
+    .log { max-height:180px; overflow-y:auto; background:#0a0e16; padding:12px; border-radius:12px; font-size:11px; border: 1px solid var(--brd); line-height: 1.5; }
+    .log-entry { margin-bottom: 6px; padding-bottom: 6px; border-bottom: 1px solid #1A2535; }
+    .log-entry:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+
+    /* --- FIXED BOTTOM NAV & NEW ICONS --- */
+    .bottom-nav { background: var(--card); border-top: 1px solid var(--brd); display: flex; justify-content: space-around; align-items: center; padding: 10px 0; padding-bottom: max(10px, env(safe-area-inset-bottom)); flex-shrink: 0; z-index: 10; }
+    .nav-item { display: flex; flex-direction: column; align-items: center; gap: 4px; color: var(--text-dim); font-size: 10px; cursor: pointer; transition: 0.2s; width: 60px; }
+    .nav-item svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .nav-item.active { color: var(--blue); font-weight: 600; }
+
+    #tv-chart { width:100%; height:320px; border-radius:8px; overflow:hidden; border:1px solid var(--brd); background:#0F1520; }
+    
+    .btn { width: 100%; padding: 14px; background: var(--blue); color: #fff; border: none; border-radius: 8px; font-family: 'Syne'; font-weight: 700; margin-top: 10px; }
+    input { background: var(--bg); color: var(--text); border: 1px solid var(--brd); padding: 14px; border-radius: 10px; width: 100%; font-family: 'IBM Plex Mono'; font-size: 15px; outline: none; margin-bottom: 10px; transition: 0.3s; }
+    input:focus { border-color: var(--blue); }
+  </style>
+</head>
+<body>
+
+  <div class="app-header">
+    <div class="top-row">
+      <div class="brand">NIFTY<span>50</span> <span class="badge" id="hdr-badge">DEMO</span></div>
+      <div class="time-txt" id="clock">--:--</div>
+    </div>
+    
+    <div class="price-row">
+      <div class="main-price" id="hdr-price">--</div>
+      <div class="price-change">Elite Engine</div>
+    </div>
+    <div class="price-sub">Current Index • ATR/Vol Active</div>
+
+    <div class="ticker-wrap">
+      <div class="t-box"><div class="t-lbl">SCORE</div><div class="t-val" id="tck-conf" style="color:var(--text-dim)">--/100</div></div>
+      <div class="t-box"><div class="t-lbl">5M TREND</div><div class="t-val" id="tck-trend">--</div></div>
+      <div class="t-box"><div class="t-lbl">15M TREND</div><div class="t-val" id="tck-15m">--</div></div>
+      <div class="t-box"><div class="t-lbl">1H TREND</div><div class="t-val" id="tck-1h">--</div></div>
+      <div class="t-box"><div class="t-lbl">VWAP</div><div class="t-val" style="color:var(--bull)" id="tck-vwap">--</div></div>
+      <div class="t-box"><div class="t-lbl">VOL SPIKE</div><div class="t-val" style="color:var(--amb)" id="tck-vol">--</div></div>
+    </div>
+  </div>
+
+  <div id="login-screen" style="position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;justify-content:center;z-index:100;padding:20px;">
+    <div style="max-width:380px;width:100%;">
+      <div class="brand" style="text-align:center;margin-bottom:30px;font-size:42px;">NIFTY<span>50</span></div>
+      <div class="card">
+        <div class="card-title" style="font-size: 14px; margin-bottom: 15px;">Broker Connect (Elite Proxy)</div>
+        <input type="text" id="inp-cc" value="B123324" autocapitalize="characters" readonly style="color: var(--blue); font-weight: bold; background: rgba(59, 158, 255, 0.05);">
+        <input type="password" id="inp-pw" placeholder="MPIN">
+        <input type="tel" id="inp-tp" placeholder="TOTP" maxlength="6">
+        <button class="btn" id="btn-login">CONNECT TO BROKER</button>
+        <button class="btn" id="btn-demo" style="background: transparent; border: 1px solid var(--brd); color: var(--text-dim);">Use Simulator Instead</button>
+        <div id="login-err" style="color: var(--bear); font-size: 11px; text-align: center; margin-top: 10px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="app-content">
+
+    <div id="tab-chart" class="tab-pane active">
+      <div class="card" style="padding-bottom: 8px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <div style="font-size: 11px; color: var(--text-dim); letter-spacing: 1px;">LIVE CHART (5M)</div>
+          <div style="font-size: 9px; color: var(--text-dim);">● EMA9 <span style="color: var(--amb)">● EMA20</span> <span style="color: var(--blue)">● VWAP</span></div>
+        </div>
+        <div id="tv-chart"></div> 
+      </div>
+      
+      <button class="btn" id="btn-sim" style="background: transparent; border: 1px solid var(--brd); color: var(--text-dim); display: none; margin-bottom: 16px;">Force Simulator Tick</button>
+
+      <h2 style="margin-bottom: 10px; font-size: 18px;">Active Paper Position</h2>
+      <div class="card" style="border-color: rgba(0, 217, 126, 0.3);">
+        <div id="position" style="font-size:13px;">
+          <span style="color:var(--text-dim)">No open position • Waiting for Entry Gatekeeper</span>
+        </div>
+      </div>
+
+      <h2 style="margin-bottom: 10px; font-size: 18px; margin-top: 20px;">Trade Journal</h2>
+      <div class="card" style="padding: 0; overflow: hidden;">
+        <div id="journal" class="log"><span style="color:var(--text-dim)">System initialized. Awaiting setups...</span></div>
+      </div>
+    </div>
+
+    <div id="tab-options" class="tab-pane">
+      <h2 style="margin-bottom: 15px; font-size: 22px;">Options Intelligence</h2>
+      
+      <div style="font-size: 10px; color: var(--text-dim); margin-bottom: 8px; letter-spacing: 1px;">🏆 BEST TRADE RIGHT NOW</div>
+      <div class="card opt-main-card">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <div style="font-family: 'Syne'; font-size: 28px; font-weight: 800; color: var(--text-dim);" id="opt-strike">-- CE</div>
+            <div style="font-size: 10px; border: 1px solid var(--brd); padding: 3px 8px; border-radius: 12px; display: inline-block; margin-top: 5px; color: var(--text-dim);" id="opt-tag">SCANNING</div>
+          </div>
+          <div class="gauge-wrap" id="opt-gauge-bg">
+            <div class="gauge-inner">
+              <div class="gauge-val" id="opt-score" style="color:var(--text)">--</div>
+              <div class="gauge-lbl">SCORE</div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="grid-3">
+          <div class="g-box"><div class="g-lbl">ENTRY</div><div class="g-val" id="opt-entry">--</div></div>
+          <div class="g-box"><div class="g-lbl" style="color:var(--bear)">ATR SL</div><div class="g-val" style="color:var(--bear)" id="opt-sl">--</div></div>
+          <div class="g-box"><div class="g-lbl" style="color:var(--bull)">TGT (1:2)</div><div class="g-val" style="color:var(--bull)" id="opt-tgt">--</div></div>
+        </div>
+
+        <div class="grid-4">
+          <div class="g-box"><div class="g-lbl">PCR</div><div class="g-val" id="opt-pcr" style="font-size: 10px; color: var(--text-dim);">API REQ</div></div>
+          <div class="g-box"><div class="g-lbl">MAX PAIN</div><div class="g-val" id="opt-pain" style="font-size: 10px; color: var(--text-dim);">API REQ</div></div>
+          <div class="g-box"><div class="g-lbl" style="color:var(--bull)">CALL OI</div><div class="g-val" id="opt-coi" style="font-size: 10px; color: var(--text-dim);">API REQ</div></div>
+          <div class="g-box"><div class="g-lbl" style="color:var(--bear)">PUT OI</div><div class="g-val" id="opt-poi" style="font-size: 10px; color: var(--text-dim);">API REQ</div></div>
+        </div>
+
+        <div style="background: rgba(255,255,255,0.02); padding: 12px; border-radius: 8px; margin-top: 15px; border: 1px solid var(--brd);">
+          <div style="font-size: 10px; color: var(--text-dim); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 1px;">Score Breakdown (Why this score?)</div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 12px; font-family: 'IBM Plex Mono';" id="opt-breakdown">
+            <div>Trend: <span id="bd-trend">--</span></div>
+            <div>VWAP: <span id="bd-vwap">--</span></div>
+            <div>Options: <span id="bd-opt" style="color: var(--text-dim);">+0 (API REQ)</span></div>
+            <div>Volume: <span id="bd-vol">--</span></div>
+            <div style="grid-column: span 2;">Structure: <span id="bd-struct">--</span></div>
+          </div>
+        </div>
+        
+        <div style="font-size: 11px; color: var(--text-dim); border-top: 1px solid var(--brd); padding-top: 10px; margin-top: 15px;" id="opt-reason">
+          Awaiting strong entry setup...
+        </div>
+      </div>
+    </div>
+
+    <div id="tab-risk" class="tab-pane">
+      <h2 style="margin-bottom: 15px; font-size: 22px;">Risk Manager</h2>
+      <div class="card">
+        <div style="display:flex;gap:12px;">
+          <div style="flex:1;"><div style="font-size:10px;color:var(--text-dim);margin-bottom:6px;">CAPITAL (₹)</div><input type="number" id="inp-capital" value="100000" oninput="calculateRisk()"></div>
+          <div style="flex:1;"><div style="font-size:10px;color:var(--text-dim);margin-bottom:6px;">RISK/TRADE (%)</div><input type="number" id="inp-risk" value="2" oninput="calculateRisk()"></div>
+        </div>
+        
+        <div style="margin-top:15px; border-top: 1px solid var(--brd); padding-top: 15px;">
+          <div id="val-emotional-loss" style="color: #fff; font-weight: bold; font-size: 14px; margin-bottom: 12px; text-align: center; background: var(--bear); padding: 12px; border-radius: 8px; box-shadow: 0 4px 15px rgba(255, 50, 86, 0.2);">
+              You will lose ₹2000 if SL hits.
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:13px; color: var(--text-dim);">
+            <div>Max Risk: <span id="val-max-loss" style="color:var(--text); font-weight:bold;">₹2000</span></div>
+            <div>Safe Size: <span id="val-lots" style="color:var(--blue); font-weight:bold;">0 Lots</span></div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div id="tab-settings" class="tab-pane">
+      <h2 style="margin-bottom: 15px; font-size: 22px;">Settings</h2>
+      
+      <div class="card" style="padding: 0;">
+        <div style="padding: 16px; border-bottom: 1px solid var(--brd); display: flex; justify-content: space-between; align-items: center;">
+          <div><div style="font-size: 14px;">Proxy Status</div><div style="font-size: 10px; color: var(--text-dim);">nifty-engine-v8.onrender.com</div></div>
+          <div style="font-size: 10px; padding: 4px 8px; border-radius: 4px; background: rgba(0,217,126,0.1); color: var(--bull); border: 1px solid rgba(0,217,126,0.3);">UP</div>
+        </div>
+        <div style="padding: 16px; border-bottom: 1px solid var(--brd); display: flex; justify-content: space-between; align-items: center;">
+          <div><div style="font-size: 14px;">Angel One User</div><div id="settings-angel-id" style="font-size: 10px; color: var(--text-dim);">Not connected</div></div>
+          <div id="settings-angel-badge" style="font-size: 10px; padding: 4px 8px; border-radius: 4px; background: rgba(255,183,0,0.1); color: var(--amb); border: 1px solid rgba(255,183,0,0.3);">DEMO</div>
+        </div>
+        <div style="padding: 16px; display: flex; justify-content: space-between; align-items: center;">
+          <div><div style="font-size: 14px;">Price Engine</div><div id="settings-price-txt" style="font-size: 10px; color: var(--text-dim);">Simulator Active</div></div>
+          <div id="settings-price-badge" style="font-size: 10px; padding: 4px 8px; border-radius: 4px; background: rgba(255,183,0,0.1); color: var(--amb); border: 1px solid rgba(255,183,0,0.3);">SIM</div>
+        </div>
+      </div>
+      
+      <button class="btn" id="btn-logout" style="background: transparent; border: 1px solid var(--bear); color: var(--bear);">🔒 Switch Account / Logout</button>
+
+      <div style="margin-top: 30px; margin-bottom: 20px; text-align: center; border-top: 1px solid var(--brd); padding-top: 25px;">
+        <div style="font-family: 'Syne', sans-serif; font-size: 15px; color: var(--text); font-weight: 800; letter-spacing: -0.5px;">NIFTY <span style="color:var(--blue)">50</span> PRO</div>
+        <div style="font-size: 10px; color: var(--text-dim); margin-top: 4px; letter-spacing: 1px;">ALGORITHMIC TRADING ENGINE</div>
+        <div style="font-size: 11px; color: var(--bull); margin-top: 14px; letter-spacing: 1.5px; font-weight: 600;">ENGINEERED BY BHAUMIK</div>
+        <div style="font-size: 9px; color: #3A4D63; margin-top: 6px;">v8.5.0 Elite Build</div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <div class="bottom-nav">
+    <div class="nav-item active" onclick="switchTab('chart', this)">
+      <svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+      Chart
+    </div>
+    <div class="nav-item" onclick="switchTab('options', this)">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"></circle><circle cx="12" cy="12" r="6"></circle><circle cx="12" cy="12" r="2"></circle></svg>
+      Options
+    </div>
+    <div class="nav-item" onclick="switchTab('risk', this)">
+      <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><polyline points="9 12 11 14 15 10"></polyline></svg>
+      Risk
+    </div>
+    <div class="nav-item" onclick="switchTab('settings', this)">
+      <svg viewBox="0 0 24 24"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg>
+      Settings
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
+  <script>
+    const PROXY = 'https://nifty-engine-v8.onrender.com';
+    
+    let isLive = false; let tickTimer = null;
+    let allDataHistory = [];
+    let myCandles = []; 
+    let globalVWAP = 0; let globalEMA20 = 0; let globalEMA9 = 0;
+    
+    let openPosition = null;
+    let journal = [];
+    let autoPilotEntry = 0; let autoPilotSl = 0;
+    
+    let lineORBHigh = null; let lineORBLow = null;
+    let linePivot = null; let lineBC = null; let lineTC = null; let linePDH = null; let linePDL = null;
+
+    calculateRisk();
+
+    function switchTab(tabId, element) {
+      document.querySelectorAll('.tab-pane').forEach(el => el.classList.remove('active'));
+      document.getElementById('tab-' + tabId).classList.add('active');
+      document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+      element.classList.add('active');
+      if(tabId === 'chart') setTimeout(() => chart.timeScale().fitContent(), 50);
+    }
+
+    setInterval(() => {
+        document.getElementById('clock').innerText = new Date().toLocaleTimeString('en-IN', { hour12: true, hour: "numeric", minute: "numeric"});
+    }, 1000);
+
+    const chartBox = document.getElementById('tv-chart');
+    const chart = LightweightCharts.createChart(chartBox, {
+      width: chartBox.clientWidth, height: 320,
+      layout: { background: { type: 'solid', color: '#0F1520' }, textColor: '#7A90A8' },
+      grid: { vertLines: { color: '#1A2535' }, horzLines: { color: '#1A2535' } },
+      timeScale: { borderColor: '#1A2535', timeVisible: true }
+    });
+    const candleSeries = chart.addCandlestickSeries({ upColor: '#00D97E', downColor: '#FF3256', borderVisible: false, wickUpColor: '#00D97E', wickDownColor: '#FF3256' });
+    const vwapSeries = chart.addLineSeries({ color: '#3B9EFF', lineWidth: 2, priceLineVisible: false });
+    const ema20Series = chart.addLineSeries({ color: '#FFB700', lineWidth: 2, priceLineVisible: false });
+    const ema9Series = chart.addLineSeries({ color: '#00D97E', lineWidth: 1, priceLineVisible: false });
+    new ResizeObserver(() => { chart.applyOptions({ width: chartBox.clientWidth }); }).observe(chartBox);
+
+    function calcEMA(data, periods) {
+      const k = 2 / (periods + 1); let ema = data[0];
+      return data.map(d => { ema = (d * k) + (ema * (1 - k)); return ema; });
+    }
+
+    function calcATR(data, period) {
+      if(data.length <= period) return 15; 
+      let trs = [];
+      for(let i=1; i<data.length; i++) {
+          let hl = data[i].high - data[i].low;
+          let hc = Math.abs(data[i].high - data[i-1].close);
+          let lc = Math.abs(data[i].low - data[i-1].close);
+          trs.push(Math.max(hl, hc, lc));
+      }
+      let sum = 0;
+      for(let i=trs.length-period; i<trs.length; i++) sum += trs[i];
+      return sum / period;
+    }
+
+    function calcVolAvg(data, period) {
+      if(data.length < period) return 0;
+      let sum = 0;
+      for(let i=data.length-period; i<data.length; i++) sum += (data[i].volume || 1000);
+      return sum / period;
+    }
+
+    function drawCPRAndStructure(data) {
+        if(data.length < 50) return;
+        const lastDate = new Date(data[data.length-1].time * 1000).toDateString();
+        let prevCandles = data.filter(c => new Date(c.time * 1000).toDateString() !== lastDate);
+        if(prevCandles.length === 0) return;
+        
+        const prevDate = new Date(prevCandles[prevCandles.length-1].time * 1000).toDateString();
+        let pDay = prevCandles.filter(c => new Date(c.time * 1000).toDateString() === prevDate);
+        if(pDay.length === 0) return;
+
+        let pdh = Math.max(...pDay.map(c=>c.high));
+        let pdl = Math.min(...pDay.map(c=>c.low));
+        let pdc = pDay[pDay.length-1].close;
+
+        let pivot = (pdh + pdl + pdc) / 3;
+        let bc = (pdh + pdl) / 2;
+        let tc = (pivot - bc) + pivot;
+
+        if(!linePDH) linePDH = candleSeries.createPriceLine({price: pdh, color: 'rgba(255, 50, 86, 0.4)', lineWidth: 1, lineStyle: 2, title: 'PDH'}); else linePDH.applyOptions({price: pdh});
+        if(!linePDL) linePDL = candleSeries.createPriceLine({price: pdl, color: 'rgba(0, 217
